@@ -10,7 +10,7 @@
 #include <sys/time.h> //FD_SET, FD_ISSET, FD_ZERO macros 
 
 #define INT_MAX 2147483647
-
+// structure for request
 typedef struct request
 {
     int user_id;
@@ -19,9 +19,13 @@ typedef struct request
     int quantity;
 }request; 
 
+//array of buy requests
 request buy[1024];
+
+//array of sell requests
 request sell[1024];
 
+//structure for matched requests.
 typedef struct orders
 {
     int sell_id;
@@ -31,9 +35,11 @@ typedef struct orders
     int item_code;
 }orders;
 
+//array of matched orders
 orders trade[1024];
 int index_tr=0;
 
+//helper function for match_trade which return min selling price for 10 items.
 request* trade_helper()
 {
     request min_sell[10];
@@ -74,6 +80,8 @@ request* trade_helper()
     return temp;
 }
 
+// function which matches sell requests and buy requests.
+// for each buy request function finds min sell price and add both to trade array and makes necessary changes to buy and sell array.
 void match_trade()
 {
     for(int i=0;i<1024;i++)
@@ -81,12 +89,14 @@ void match_trade()
         if(buy[i].item_code==-1)
             break;
 
-        request* min_sell=trade_helper();   
+        request* min_sell=trade_helper(); 
+        //printf("hello\n"); 
         int itemcode = buy[i].item_code;
         
         int flag=1;
         if(min_sell[itemcode-1].quantity==0)
         {
+        	//printf("hello2\n");
             flag=0;
         }
         int k=0;
@@ -94,13 +104,16 @@ void match_trade()
         for (int j = 0; j < 1024 && flag==1; ++j)
         {
             if(min_sell[itemcode-1].user_id==sell[j].user_id && min_sell[itemcode-1].item_code == sell[j].item_code && min_sell[itemcode-1].quantity == sell[j].quantity && min_sell[itemcode-1].price == sell[j].price)
-            {   k=j;
+            {   
+            	//printf("hello3\n");
+            	k=j;
                 break;
             }
         }
 
-        if(min_sell[itemcode-1].quantity==buy[i].quantity && flag!=0)
+        if(min_sell[itemcode-1].quantity==buy[i].quantity && min_sell[itemcode-1].price<=buy[i].price && flag!=0)
         {
+        	//printf("hello4\n");
             trade[index_tr].sell_id=min_sell[itemcode-1].user_id;
             trade[index_tr].buy_id=buy[i].user_id;
             trade[index_tr].price=min_sell[itemcode-1].price;
@@ -117,8 +130,9 @@ void match_trade()
             sell[k].user_id=0;
         }
         else
-        if(min_sell[itemcode-1].quantity>buy[i].quantity && flag!=0)
+        if(min_sell[itemcode-1].quantity>buy[i].quantity && min_sell[itemcode-1].price<=buy[i].price && flag!=0)
         {
+        	//printf("hello5\n");
             trade[index_tr].sell_id=min_sell[itemcode-1].user_id;
             trade[index_tr].buy_id=buy[i].user_id;
             trade[index_tr].price=min_sell[itemcode-1].price;
@@ -133,26 +147,27 @@ void match_trade()
             
         }
         else
-        if(min_sell[itemcode-1].quantity<buy[i].quantity && flag!=0)
+        if(min_sell[itemcode-1].quantity<buy[i].quantity && min_sell[itemcode-1].price<=buy[i].price && flag!=0)
         {
+        	//printf("hello6\n");
             trade[index_tr].sell_id=min_sell[itemcode-1].user_id;
             trade[index_tr].buy_id=buy[i].user_id;
             trade[index_tr].price=min_sell[itemcode-1].price;
-            trade[index_tr].quantity=buy[i].quantity;
-            trade[index_tr].item_code=buy[i].item_code;
+            trade[index_tr].quantity=sell[k].quantity;
+            trade[index_tr].item_code=sell[k].item_code;
             index_tr++;
             buy[i].quantity=buy[i].quantity-sell[k].quantity;
             sell[k].quantity=0;
             sell[k].item_code=0;
             sell[k].price=0;
             sell[k].user_id=0;
-            i=i-1;
+            //i=i-1;
         }
 
     }
 }
 
-
+//order status function finds maximum selling price and minimum buying price for each order.
 void orders_st(int st)
 {
     request max_buy[10];
@@ -184,13 +199,6 @@ void orders_st(int st)
         }
     }
 
-    for(int i=0;i<1024;i++)
-    {
-        if(sell[i].price < min_sell[sell[i].item_code-1].price)
-        {
-            min_sell[sell[i].item_code-1]=sell[i];
-        }
-    }
     strcat(buffer,"buy\n");
     for(int i=0;i<10;i++)
     {
@@ -205,6 +213,15 @@ void orders_st(int st)
         }
         strcat(buffer,temp1);
     }
+
+    for(int i=0;i<1024;i++)
+    {
+        if(sell[i].price < min_sell[sell[i].item_code-1].price)
+        {
+            min_sell[sell[i].item_code-1]=sell[i];
+        }
+    } 
+    
     strcat(buffer,"sell\n");
     for(int i=0;i<10;i++)
     {
@@ -222,6 +239,8 @@ void orders_st(int st)
     int n = write(st,buffer,sizeof(buffer));
 }
 
+// function send the matched trade status information to client.
+// Reads data from trade array and sends to client
 void trade_st(int st, int user_id)
 {
     int i=0;
@@ -239,6 +258,7 @@ void trade_st(int st, int user_id)
 
 }
 
+//reads the data from client and adds the details to sell array.
 void sell_order(char * temp, int user_id)
 {
     char *t=strtok(temp,"-");
@@ -261,6 +281,7 @@ void sell_order(char * temp, int user_id)
     sell[i].user_id=user_id;
 }
 
+//reads the data from client and adds the details to buy array. 
 void buy_order(char * temp, int user_id)
 {
     char *t=strtok(temp,"-");
@@ -567,6 +588,9 @@ int main(int argc , char *argv[])
                     	}
                     	break;
                     }
+
+		    //Buy Request
+                    //We check for trade after buy or sell request.
                     if (t=='B')
                     {
                         
@@ -577,6 +601,7 @@ int main(int argc , char *argv[])
                         write(sd , message2 , strlen(message2) );     
                         break;
                     }
+	            //Sell Request
                     if (t=='S')
                     {
                     	temp=strtok(NULL,"#");  
@@ -586,11 +611,13 @@ int main(int argc , char *argv[])
                         write(sd , message3 , strlen(message3) );     
                         break;
                     }
+		    //Order Status
                     if(t=='O')
                     {
                     	orders_st(sd);
                     	break;
                     }
+		    //Trade_status
                     if(t=='T') 
                     {
                     	trade_st(sd,user_id[i]);
