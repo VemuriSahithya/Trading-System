@@ -315,4 +315,3 @@ int main(int argc, char const *argv[])
 	request_handler(sock);
     return 0; 
 }
-
